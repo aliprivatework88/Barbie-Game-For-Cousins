@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Barbie-style Hair Studio — accessories + name</title>
+<style>
+  :root{
+    --bg1:#ffe3f1; --bg2:#ffd3ec; --card:#fff6fb; --ink:#3a2b3b; --mut:#826b7e;
+    --accent:#ff7ac8; --accent2:#ffb3e5; --ring:#ff8bd9; --line:#f1c9e2;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);
+    background:radial-gradient(1200px 800px at 70% -10%, var(--bg2), var(--bg1));}
+  .wrap{max-width:1080px;margin:0 auto;padding:16px}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  h1{margin:0;font-size:20px;font-weight:900;letter-spacing:.2px}
+  .pill{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .main{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:900px){ .main{grid-template-columns:1fr} }
+
+  .stage{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:10px;display:grid;place-items:center;
+    box-shadow:0 12px 30px rgba(255,115,196,.25)}
+  canvas{width:100%;height:auto;max-width:520px;border-radius:16px;border:2px solid var(--line);background:linear-gradient(#fff,#ffe9f6)}
+  .controls{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:12px}
+
+  .group{border:1px dashed var(--line);border-radius:14px;padding:10px}
+  .group h3{margin:0 0 8px 0;font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut)}
+
+  .row{display:flex;flex-wrap:wrap;gap:8px}
+  .btn{cursor:pointer;border:2px solid var(--line);background:#fff;border-radius:12px;padding:8px 10px;font-weight:800}
+  .btn:hover{border-color:var(--ring)}
+  .btn.sel{outline:3px solid var(--ring)}
+  .swatch{width:34px;height:34px;border-radius:10px;border:2px solid var(--line);cursor:pointer}
+  .swatch.sel{outline:3px solid var(--ring)}
+  .tiny{font-size:12px;color:var(--mut)}
+  .footer{display:flex;gap:8px;flex-wrap:wrap}
+  .cta{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;border:none}
+  .cta:hover{filter:brightness(1.05)}
+  .input{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  input[type="text"]{padding:8px 10px;border:2px solid var(--line);border-radius:10px;background:#fff;min-width:220px}
+  input[type="range"]{accent-color:#ff7ac8}
+  label{font-weight:700}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1><span class="pill">Barbie-style</span> Hair Studio — avatar, hair, accessories & name</h1>
+      <div class="tiny">Pick style + color, add a bow/headband, and a cute name 💖</div>
+    </header>
+
+    <div class="main">
+      <section class="stage">
+        <canvas id="avatar" width="720" height="900"></canvas>
+        <div class="footer" style="margin-top:10px">
+          <button class="btn" id="randomBtn">🎲 Random</button>
+          <button class="btn" id="resetBtn">↺ Reset</button>
+          <button class="btn cta" id="saveBtn">⬇ Save PNG</button>
+        </div>
+      </section>
+
+      <section class="controls">
+        <div class="group">
+          <h3>Avatar</h3>
+          <div class="row" id="faces"></div>
+          <div class="tiny" style="margin-top:6px">Choose face shape + skin tone.</div>
+        </div>
+
+        <div class="group">
+          <h3>Hair Style</h3>
+          <div class="row" id="styles"></div>
+        </div>
+
+        <div class="group">
+          <h3>Hair Color</h3>
+          <div class="row" id="colors"></div>
+        </div>
+
+        <div class="group">
+          <h3>Accessories</h3>
+          <div class="row" id="accTypes"></div>
+          <div class="row" style="align-items:center">
+            <label>Side:</label>
+            <button class="btn" id="sideLeft">◀ Left</button>
+            <button class="btn" id="sideRight">Right ▶</button>
+          </div>
+          <div class="row" id="accColors"></div>
+          <div class="tiny">Types: None, Bow, Headband, Heart Clip, Star Clip</div>
+        </div>
+
+        <div class="group">
+          <h3>Name Label</h3>
+          <div class="input">
+            <label for="nameText">Name:</label>
+            <input id="nameText" type="text" maxlength="20" placeholder="e.g., Aisha"/>
+            <label><input id="nameShow" type="checkbox" checked/> Show</label>
+          </div>
+          <div class="row" style="align-items:center">
+            <label style="margin-right:6px">Size:</label>
+            <input id="nameSize" type="range" min="22" max="72" value="36"/>
+            <span class="tiny" id="sizeOut">36 px</span>
+          </div>
+          <div class="row" id="nameColors"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ====== STATE =============================================================
+  const state = {
+    face: 'round',        // 'round' | 'oval' | 'heart'
+    skin: '#f7d6c9',
+    hairStyle: 'long',    // 'long' | 'bob' | 'ponytail' | 'bun' | 'pixie' | 'braids'
+    hairColor: '#2e1a12',
+    accessory: {          // hair add-ons
+      type: 'none',       // 'none'|'bow'|'headband'|'clip-heart'|'clip-star'
+      color: '#ff66c4',
+      side: 'right'
+    },
+    label: {              // name label
+      show: true,
+      text: '',
+      color: '#d1568c',
+      size: 36
+    }
+  };
+
+  const FACE_OPTIONS = [
+    {key:'round', label:'Round'},
+    {key:'oval',  label:'Oval'},
+    {key:'heart', label:'Heart'}
+  ];
+  const SKIN_TONES = ['#fce6d9','#f7d6c9','#f1c1a5','#dea07c','#b87450','#8a5136'];
+  const HAIR_STYLES = [
+    {key:'long', label:'Long'},
+    {key:'bob', label:'Bob'},
+    {key:'ponytail', label:'Ponytail'},
+    {key:'bun', label:'Bun'},
+    {key:'pixie', label:'Pixie'},
+    {key:'braids', label:'Braids'}
+  ];
+  const HAIR_COLORS = [
+    '#2e1a12','#5a3a2e','#8b5a2b','#d7a26b','#f1d7a6',
+    '#221f1f','#5b5b5b','#a8a8a8','#e6e6e6',
+    '#7d3cff','#ff66c4','#ff477e','#ff8b38','#1aa6ff','#2dd881'
+  ];
+  const ACCESSORY_TYPES = [
+    {key:'none', label:'None'},
+    {key:'bow', label:'Bow 🎀'},
+    {key:'headband', label:'Headband'},
+    {key:'clip-heart', label:'Heart Clip ♡'},
+    {key:'clip-star', label:'Star Clip ★'}
+  ];
+  const ACC_COLORS = ['#ff66c4','#ff477e','#ff8b38','#ffd36b','#7d3cff','#1aa6ff','#2dd881','#ffffff','#222222'];
+  const NAME_COLORS = ['#d1568c','#ff66c4','#7d3cff','#1aa6ff','#2dd881','#ff8b38','#222222','#ffffff'];
+
+  // ====== UI BUILDERS =======================================================
+  const facesEl = document.getElementById('faces');
+  const stylesEl = document.getElementById('styles');
+  const colorsEl = document.getElementById('colors');
+  const accTypesEl = document.getElementById('accTypes');
+  const accColorsEl = document.getElementById('accColors');
+  const nameColorsEl = document.getElementById('nameColors');
+
+  // Faces
+  FACE_OPTIONS.forEach(opt=>{
+    const box = document.createElement('div'); box.style.display='grid'; box.style.gap='6px'; box.style.padding='6px';
+    box.style.border='2px solid var(--line)'; box.style.borderRadius='12px'; box.style.background='#fff';
+    const b = document.createElement('button'); b.className='btn'; b.textContent=opt.label; b.dataset.face=opt.key;
+    b.addEventListener('click', ()=>{ state.face=opt.key; refreshSelections(); draw(); });
+    box.appendChild(b);
+    const row = document.createElement('div'); row.className='row';
+    SKIN_TONES.forEach(col=>{
+      const s = document.createElement('div'); s.className='swatch'; s.style.background=col; s.title=col;
+      s.addEventListener('click', ()=>{ state.skin = col; state.face = opt.key; refreshSelections(); draw(); });
+      row.appendChild(s);
+    });
+    box.appendChild(row);
+    facesEl.appendChild(box);
+  });
+
+  // Styles
+  HAIR_STYLES.forEach(opt=>{
+    const b = document.createElement('button');
+    b.className='btn'; b.textContent=opt.label; b.dataset.style=opt.key;
+    b.addEventListener('click', ()=>{ state.hairStyle = opt.key; refreshSelections(); draw(); });
+    stylesEl.appendChild(b);
+  });
+
+  // Hair colors
+  HAIR_COLORS.forEach(c=>{
+    const s = document.createElement('div'); s.className='swatch'; s.style.background=c; s.title=c;
+    s.addEventListener('click', ()=>{ state.hairColor=c; refreshSelections(); draw(); });
+    colorsEl.appendChild(s);
+  });
+
+  // Accessory types
+  ACCESSORY_TYPES.forEach(t=>{
+    const b=document.createElement('button'); b.className='btn'; b.textContent=t.label; b.dataset.acctype=t.key;
+    b.addEventListener('click', ()=>{ state.accessory.type=t.key; refreshSelections(); draw(); });
+    accTypesEl.appendChild(b);
+  });
+  // Accessory side
+  document.getElementById('sideLeft').onclick=()=>{ state.accessory.side='left'; refreshSelections(); draw(); };
+  document.getElementById('sideRight').onclick=()=>{ state.accessory.side='right'; refreshSelections(); draw(); };
+
+  // Accessory colors
+  ACC_COLORS.forEach(c=>{
+    const s=document.createElement('div'); s.className='swatch'; s.style.background=c; s.title=c;
+    s.addEventListener('click', ()=>{ state.accessory.color=c; refreshSelections(); draw(); });
+    accColorsEl.appendChild(s);
+  });
+
+  // Name label controls
+  const nameText = document.getElementById('nameText');
+  const nameShow = document.getElementById('nameShow');
+  const nameSize = document.getElementById('nameSize');
+  const sizeOut = document.getElementById('sizeOut');
+  nameText.addEventListener('input', ()=>{ state.label.text = nameText.value.trim(); draw(); });
+  nameShow.addEventListener('change', ()=>{ state.label.show = nameShow.checked; draw(); });
+  nameSize.addEventListener('input', ()=>{ state.label.size = +nameSize.value; sizeOut.textContent = nameSize.value+' px'; draw(); });
+
+  NAME_COLORS.forEach(c=>{
+    const s=document.createElement('div'); s.className='swatch'; s.style.background=c; s.title=c;
+    s.addEventListener('click', ()=>{ state.label.color=c; refreshSelections(); draw(); });
+    nameColorsEl.appendChild(s);
+  });
+
+  function refreshSelections(){
+    document.querySelectorAll('[data-style]').forEach(b=> b.classList.toggle('sel', b.dataset.style===state.hairStyle));
+    document.querySelectorAll('[data-face]').forEach(b=> b.classList.toggle('sel', b.dataset.face===state.face));
+    facesEl.querySelectorAll('.swatch').forEach(s=> s.classList.toggle('sel', s.style.background===rgbToHex(state.skin)));
+    colorsEl.querySelectorAll('.swatch').forEach(s=> s.classList.toggle('sel', s.title===state.hairColor));
+    document.querySelectorAll('[data-acctype]').forEach(b=> b.classList.toggle('sel', b.dataset.acctype===state.accessory.type));
+    accColorsEl.querySelectorAll('.swatch').forEach(s=> s.classList.toggle('sel', s.title===state.accessory.color));
+    document.getElementById('sideLeft').classList.toggle('sel', state.accessory.side==='left');
+    document.getElementById('sideRight').classList.toggle('sel', state.accessory.side==='right');
+    // name label
+    nameColorsEl.querySelectorAll('.swatch').forEach(s=> s.classList.toggle('sel', s.title===state.label.color));
+  }
+
+  // ====== CANVAS SETUP ======================================================
+  const cv = document.getElementById('avatar');
+  const cx = cv.getContext('2d');
+
+  function draw(){
+    const w=cv.width, h=cv.height;
+    cx.clearRect(0,0,w,h);
+
+    // Background: soft gradient + sparkles
+    const g = cx.createLinearGradient(0,0,0,h);
+    g.addColorStop(0,'#fff');
+    g.addColorStop(1,'#ffe5f5');
+    cx.fillStyle=g; cx.fillRect(0,0,w,h);
+    sparkle();
+
+    // Ground shadow
+    cx.fillStyle='rgba(0,0,0,.06)';
+    cx.beginPath(); cx.ellipse(w/2, h*0.86, 180, 24, 0, 0, Math.PI*2); cx.fill();
+
+    const centerX = w/2;
+    const headW = 280, headH = (state.face==='oval'?330: (state.face==='heart'?300:310));
+    const headX = centerX, headY = h*0.46;
+    const neckW = 70, neckH= 70;
+
+    // Hair (back)
+    hairBack(state.hairStyle, state.hairColor, headX, headY, headW, headH);
+
+    // Neck + shoulders
+    cx.fillStyle = state.skin;
+    roundRect(cx, headX-neckW/2, headY+headH/2-10, neckW, neckH, 20); cx.fill();
+    cx.beginPath();
+    cx.moveTo(headX-170, headY+headH/2+40);
+    cx.quadraticCurveTo(headX, headY+headH/2+5, headX+170, headY+headH/2+40);
+    cx.lineTo(headX+170, headY+headH/2+140);
+    cx.lineTo(headX-170, headY+headH/2+140);
+    cx.closePath(); cx.fill();
+
+    // Head & face
+    drawHead(state.face, state.skin, headX, headY, headW, headH);
+    drawFace(headX, headY, headW, headH);
+
+    // Hair (front)
+    hairFront(state.hairStyle, state.hairColor, headX, headY, headW, headH);
+
+    // Accessories (on top)
+    drawAccessory(state.accessory, headX, headY, headW, headH);
+
+    // Name label (bottom center)
+    if(state.label.show && state.label.text){
+      const size = state.label.size;
+      cx.font = `bold ${size}px system-ui, -apple-system, Segoe UI, Roboto, Arial`;
+      cx.textAlign='center';
+      cx.textBaseline='middle';
+      const x = w/2, y = h*0.9;
+      const text = state.label.text;
+      const m = cx.measureText(text);
+      const padX=16, padY=10, r=16;
+      // bubble
+      cx.fillStyle='rgba(255,255,255,.85)';
+      roundRect(cx, x-m.width/2 - padX, y-size/2 - padY, m.width + padX*2, size + padY*2, r); cx.fill();
+      // text
+      cx.fillStyle = state.label.color;
+      cx.fillText(text, x, y+2);
+    }
+  }
+
+  // ====== DRAW HELPERS ======================================================
+  function drawHead(shape, color, x,y,w,h){
+    cx.fillStyle=color;
+    cx.beginPath();
+    if(shape==='round'){
+      cx.ellipse(x,y,w/2,h/2,0,0,Math.PI*2);
+    }else if(shape==='oval'){
+      cx.ellipse(x,y,w*0.48,h*0.56,0,0,Math.PI*2);
+    }else{ // heart
+      const topY=y-h*0.1;
+      cx.moveTo(x, y+h*0.35);
+      cx.bezierCurveTo(x-w*0.44, y+h*0.2, x-w*0.22, topY, x-w*0.08, topY);
+      cx.bezierCurveTo(x, topY, x, topY, x+w*0.08, topY);
+      cx.bezierCurveTo(x+w*0.22, topY, x+w*0.44, y+h*0.2, x, y+h*0.35);
+    }
+    cx.closePath(); cx.fill();
+
+    // Ears
+    cx.fillStyle=shade(color,-12);
+    ear(x-w*0.33, y+h*0.02, 30,40);
+    ear(x+w*0.33, y+h*0.02, 30,40);
+  }
+  function ear(x,y,w,h){ cx.beginPath(); cx.ellipse(x,y,w/2,h/2,0,0,Math.PI*2); cx.fill(); }
+
+  function drawFace(x,y,w,h){
+    // cheeks
+    cx.fillStyle='rgba(255,120,170,.15)';
+    cx.beginPath(); cx.ellipse(x-w*0.18, y+h*0.08, 28,18,0,0,Math.PI*2); cx.fill();
+    cx.beginPath(); cx.ellipse(x+w*0.18, y+h*0.08, 28,18,0,0,Math.PI*2); cx.fill();
+    // eyes
+    const eyeY = y - h*0.02, eyeDX = w*0.16;
+    roundedRect( x-eyeDX-26, eyeY-10, 52, 20, 10, '#fff' );
+    roundedRect( x+eyeDX-26, eyeY-10, 52, 20, 10, '#fff' );
+    cx.fillStyle='#1f1a1f';
+    cx.beginPath(); cx.arc(x-eyeDX, eyeY, 8, 0, Math.PI*2); cx.fill();
+    cx.beginPath(); cx.arc(x+eyeDX, eyeY, 8, 0, Math.PI*2); cx.fill();
+    // sparkle
+    cx.fillStyle='#fff';
+    cx.beginPath(); cx.arc(x-eyeDX-3, eyeY-3, 2.5, 0, Math.PI*2); cx.fill();
+    cx.beginPath(); cx.arc(x+eyeDX-3, eyeY-3, 2.5, 0, Math.PI*2); cx.fill();
+    // nose
+    cx.strokeStyle='rgba(0,0,0,.25)'; cx.lineWidth=2;
+    cx.beginPath(); cx.moveTo(x, y+h*0.06); cx.quadraticCurveTo(x+6, y+h*0.08, x, y+h*0.1); cx.stroke();
+    // mouth
+    cx.strokeStyle='#d1568c'; cx.lineWidth=3;
+    cx.beginPath(); cx.moveTo(x-24, y+h*0.14); cx.quadraticCurveTo(x, y+h*0.19, x+24, y+h*0.14); cx.stroke();
+  }
+
+  function roundedRect(x,y,w,h,r,fill){ cx.fillStyle=fill; roundRect(cx,x,y,w,h,r); cx.fill(); }
+  function roundRect(c,x,y,w,h,r){
+    c.beginPath();
+    c.moveTo(x+r,y); c.lineTo(x+w-r,y); c.quadraticCurveTo(x+w,y,x+w,y+r);
+    c.lineTo(x+w,y+h-r); c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    c.lineTo(x+r,y+h); c.quadraticCurveTo(x,y+h,x,y+h-r);
+    c.lineTo(x,y+r); c.quadraticCurveTo(x,y,x+r,y); c.closePath();
+  }
+
+  function hairBack(style, col, x,y,w,h){
+    cx.fillStyle = col; cx.strokeStyle = shade(col,-25); cx.lineWidth = 2;
+    if(style==='long'){
+      cx.beginPath();
+      cx.moveTo(x-w*0.45, y+h*0.05);
+      cx.quadraticCurveTo(x-w*0.52, y+h*0.45, x-w*0.28, y+h*0.7);
+      cx.quadraticCurveTo(x, y+h*0.86, x+w*0.28, y+h*0.7);
+      cx.quadraticCurveTo(x+w*0.52, y+h*0.45, x+w*0.45, y+h*0.05);
+      cx.closePath(); cx.fill(); cx.stroke();
+    }
+    if(style==='ponytail'){
+      cx.beginPath();
+      cx.moveTo(x+w*0.18, y-h*0.18);
+      cx.quadraticCurveTo(x+w*0.44, y-h*0.05, x+w*0.30, y+h*0.35);
+      cx.quadraticCurveTo(x+w*0.15, y+h*0.58, x+w*0.02, y+h*0.35);
+      cx.quadraticCurveTo(x+w*0.16, y+h*0.05, x+w*0.1, y-h*0.12);
+      cx.closePath(); cx.fill(); cx.stroke();
+    }
+    if(style==='bun'){
+      cx.beginPath();
+      cx.ellipse(x, y-h*0.18, w*0.22, h*0.14, 0, 0, Math.PI*2); cx.fill(); cx.stroke();
+    }
+    if(style==='braids'){
+      for(const side of [-1,1]){
+        let bx = x+side*w*0.36, by = y+h*0.1;
+        for(let i=0;i<6;i++){
+          cx.beginPath(); cx.ellipse(bx, by+i*35, 18, 14, 0, 0, Math.PI*2); cx.fill(); cx.stroke();
+        }
+      }
+    }
+  }
+
+  function hairFront(style, col, x,y,w,h){
+    cx.fillStyle = col; cx.strokeStyle = shade(col,-25); cx.lineWidth = 2;
+
+    if(style==='long' || style==='bob'){
+      // side curtains + bangs
+      cx.beginPath();
+      cx.moveTo(x-w*0.44, y-h*0.02);
+      cx.quadraticCurveTo(x-w*0.48, y+h*0.2, x-w*0.32, y+h*0.28);
+      cx.lineTo(x-w*0.22, y+h*0.0);
+      cx.closePath(); cx.fill(); cx.stroke();
+
+      cx.beginPath();
+      cx.moveTo(x+w*0.44, y-h*0.02);
+      cx.quadraticCurveTo(x+w*0.48, y+h*0.2, x+w*0.32, y+h*0.28);
+      cx.lineTo(x+w*0.22, y+h*0.0);
+      cx.closePath(); cx.fill(); cx.stroke();
+
+      cx.beginPath();
+      cx.moveTo(x-w*0.28, y-h*0.16);
+      cx.quadraticCurveTo(x, y-h*0.22, x+w*0.28, y-h*0.16);
+      cx.quadraticCurveTo(x, y-h*0.02, x-w*0.28, y-h*0.16);
+      cx.closePath(); cx.fill(); cx.stroke();
+
+      if(style==='bob'){
+        cx.fillStyle=gfade(col, -0.06);
+        cx.fillRect(x-w*0.45, y+h*0.22, w*0.9, h*0.25);
+      }
+    }
+
+    if(style==='ponytail'){
+      cx.beginPath();
+      cx.ellipse(x, y-h*0.18, w*0.42, h*0.22, 0, Math.PI, 0);
+      cx.closePath(); cx.fill(); cx.stroke();
+
+      cx.beginPath();
+      cx.moveTo(x-w*0.18, y-h*0.12);
+      cx.quadraticCurveTo(x, y-h*0.02, x+w*0.18, y-h*0.12);
+      cx.quadraticCurveTo(x, y-h*0.18, x-w*0.18, y-h*0.12);
+      cx.closePath(); cx.fill(); cx.stroke();
+
+      cx.fillStyle=shade(col,20);
+      cx.beginPath(); cx.ellipse(x+w*0.16, y-h*0.14, 14,10,0,0,Math.PI*2); cx.fill();
+      cx.strokeStyle=shade(col,-25); cx.stroke();
+    }
+
+    if(style==='bun'){
+      cx.beginPath();
+      cx.moveTo(x-w*0.34, y-h*0.16);
+      cx.quadraticCurveTo(x-w*0.40, y+h*0.04, x-w*0.20, y+h*0.08);
+      cx.lineTo(x-w*0.16, y-h*0.1);
+      cx.closePath(); cx.fill(); cx.stroke();
+
+      cx.beginPath();
+      cx.moveTo(x+w*0.34, y-h*0.16);
+      cx.quadraticCurveTo(x+w*0.40, y+h*0.04, x+w*0.20, y+h*0.08);
+      cx.lineTo(x+w*0.16, y-h*0.1);
+      cx.closePath(); cx.fill(); cx.stroke();
+
+      cx.beginPath();
+      cx.moveTo(x-w*0.16, y-h*0.14);
+      cx.quadraticCurveTo(x, y-h*0.06, x+w*0.16, y-h*0.14);
+      cx.quadraticCurveTo(x, y-h*0.18, x-w*0.16, y-h*0.14);
+      cx.closePath(); cx.fill(); cx.stroke();
+    }
+
+    if(style==='pixie'){
+      cx.beginPath();
+      cx.moveTo(x-w*0.36, y-h*0.10);
+      cx.quadraticCurveTo(x, y-h*0.28, x+w*0.36, y-h*0.10);
+      cx.quadraticCurveTo(x+w*0.10, y+h*0.02, x-w*0.10, y+h*0.02);
+      cx.closePath(); cx.fill(); cx.stroke();
+
+      cx.beginPath();
+      cx.moveTo(x-w*0.20, y-h*0.06);
+      cx.quadraticCurveTo(x, y-h*0.02, x+w*0.14, y-h*0.10);
+      cx.lineTo(x+w*0.10, y-h*0.02);
+      cx.closePath(); cx.fill(); cx.stroke();
+    }
+
+    if(style==='braids'){
+      cx.beginPath();
+      cx.moveTo(x-w*0.34, y-h*0.12);
+      cx.quadraticCurveTo(x, y-h*0.20, x+w*0.34, y-h*0.12);
+      cx.quadraticCurveTo(x+w*0.12, y+h*0.02, x-w*0.12, y+h*0.02);
+      cx.closePath(); cx.fill(); cx.stroke();
+
+      for(const side of [-1,1]){
+        let bx = x+side*w*0.28, by = y+h*0.00;
+        for(let i=0;i<4;i++){
+          cx.beginPath(); cx.ellipse(bx+side*i*4, by+i*26, 12, 9, 0, 0, Math.PI*2); cx.fill(); cx.stroke();
+        }
+      }
+    }
+
+    // soft shine
+    cx.globalAlpha=0.08;
+    cx.fillStyle='#fff';
+    cx.beginPath();
+    cx.ellipse(x-w*0.12, y-h*0.08, w*0.28, h*0.20, -0.2, 0, Math.PI*2);
+    cx.fill();
+    cx.globalAlpha=1;
+  }
+
+  // Accessories
+  function drawAccessory(acc, x,y,w,h){
+    if(acc.type==='none') return;
+    const side = acc.side==='left' ? -1 : 1;
+    cx.fillStyle = acc.color;
+    cx.strokeStyle = shade(acc.color, -30);
+    cx.lineWidth = 2;
+
+    // anchor points
+    const templeX = x + side*w*0.32, templeY = y - h*0.02;
+    const topX = x, topY = y - h*0.2;
+
+    if(acc.type==='headband'){
+      // a thick arc over top
+      cx.beginPath();
+      cx.strokeStyle = acc.color;
+      cx.lineWidth = 14;
+      cx.arc(x, y-h*0.18, w*0.38, Math.PI*1.05, Math.PI* -0.05, true);
+      cx.stroke();
+      cx.lineWidth = 2;
+    }
+
+    if(acc.type==='bow'){
+      const bx = templeX, by = templeY+10;
+      // left / right loops
+      cx.beginPath();
+      cx.moveTo(bx,by);
+      cx.quadraticCurveTo(bx-30*side, by-18, bx-54*side, by+2);
+      cx.quadraticCurveTo(bx-28*side, by+18, bx,by);
+      cx.closePath(); cx.fill(); cx.stroke();
+
+      cx.beginPath();
+      cx.moveTo(bx,by);
+      cx.quadraticCurveTo(bx+30*side, by-18, bx+54*side, by+2);
+      cx.quadraticCurveTo(bx+28*side, by+18, bx,by);
+      cx.closePath(); cx.fill(); cx.stroke();
+
+      // knot
+      cx.beginPath(); cx.ellipse(bx,by,10,12,0,0,Math.PI*2); cx.fill(); cx.stroke();
+      // tiny shine
+      cx.globalAlpha=.15; cx.fillStyle='#fff'; cx.beginPath(); cx.ellipse(bx-4,by-4,6,4,0,0,Math.PI*2); cx.fill(); cx.globalAlpha=1;
+    }
+
+    if(acc.type==='clip-heart'){
+      const hx = templeX + side*10, hy = templeY+6;
+      heart(hx, hy, 20); // filled heart
+      cx.strokeStyle=shade(acc.color,-30); cx.stroke();
+    }
+    if(acc.type==='clip-star'){
+      const sx = templeX + side*10, sy = templeY+6;
+      star(sx, sy, 12, 5);
+    }
+  }
+
+  function heart(x,y,s){
+    cx.beginPath();
+    cx.moveTo(x, y+s*0.35);
+    cx.bezierCurveTo(x-s, y-s*0.3, x-s*0.6, y-s*0.95, x, y-s*0.55);
+    cx.bezierCurveTo(x+s*0.6, y-s*0.95, x+s, y-s*0.3, x, y+s*0.35);
+    cx.closePath(); cx.fill(); cx.stroke();
+  }
+  function star(x,y,r,points){
+    const step = Math.PI/points;
+    cx.beginPath();
+    for(let i=0;i<points*2;i++){
+      const ang = i*step - Math.PI/2;
+      const rad = i%2===0? r : r*0.5;
+      cx.lineTo(x + Math.cos(ang)*rad, y + Math.sin(ang)*rad);
+    }
+    cx.closePath(); cx.fill(); cx.stroke();
+  }
+
+  // cute sparkles
+  function sparkle(){
+    cx.save();
+    cx.globalAlpha=0.35;
+    cx.fillStyle='#ffd0f0';
+    for(let i=0;i<18;i++){
+      const sx = (i*137)%cv.width, sy = ((i*271)+80)%cv.height;
+      cx.beginPath();
+      cx.moveTo(sx,sy-6); cx.lineTo(sx+2,sy); cx.lineTo(sx,sy+6); cx.lineTo(sx-2,sy); cx.closePath(); cx.fill();
+    }
+    cx.restore();
+  }
+
+  // Utils: colors
+  function shade(hex, amt){
+    const c = hexToRgb(hex); const t = amt>0?255:0; const a=Math.abs(amt)/100;
+    const r = Math.round((1-a)*c.r + a*t), g=Math.round((1-a)*c.g + a*t), b=Math.round((1-a)*c.b + a*t);
+    return `rgb(${r},${g},${b})`;
+  }
+  function gfade(hex, amt){ return shade(hex, amt*100); }
+  function hexToRgb(hex){
+    const s = hex.replace('#',''); const n=parseInt(s.length===3? s.split('').map(x=>x+x).join(''):s,16);
+    return {r:(n>>16)&255, g:(n>>8)&255, b:n&255};
+  }
+  function rgbToHex(rgb){
+    const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/); if(!m) return rgb;
+    const r=+m[1], g=+m[2], b=+m[3];
+    return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+  }
+
+  // ====== ACTIONS ===========================================================
+  document.getElementById('randomBtn').onclick = ()=>{
+    state.face = ['round','oval','heart'][Math.floor(Math.random()*3)];
+    state.skin = SKIN_TONES[Math.floor(Math.random()*SKIN_TONES.length)];
+    state.hairStyle = HAIR_STYLES[Math.floor(Math.random()*HAIR_STYLES.length)].key;
+    state.hairColor = HAIR_COLORS[Math.floor(Math.random()*HAIR_COLORS.length)];
+    // random accessories ~50% chance
+    const accChance = Math.random();
+    if(accChance<0.4){
+      const opts = ACCESSORY_TYPES.filter(a=>a.key!=='none');
+      state.accessory.type = opts[Math.floor(Math.random()*opts.length)].key;
+      state.accessory.color = ACC_COLORS[Math.floor(Math.random()*ACC_COLORS.length)];
+      state.accessory.side = Math.random()<0.5? 'left':'right';
+    } else {
+      state.accessory.type='none';
+    }
+    // random label sometimes
+    const names = ['Aisha','Sara','Maya','Zara','Haya','Lina','Noor','Aaliyah'];
+    if(Math.random()<0.7){
+      state.label.show = true;
+      state.label.text = names[Math.floor(Math.random()*names.length)];
+      state.label.color = NAME_COLORS[Math.floor(Math.random()*NAME_COLORS.length)];
+      state.label.size = 28 + Math.floor(Math.random()*30);
+    }
+    nameText.value = state.label.text;
+    nameShow.checked = state.label.show;
+    nameSize.value = state.label.size; document.getElementById('sizeOut').textContent = state.label.size+' px';
+    refreshSelections(); draw();
+  };
+  document.getElementById('resetBtn').onclick = ()=>{
+    state.face='round'; state.skin='#f7d6c9'; state.hairStyle='long'; state.hairColor='#2e1a12';
+    state.accessory={type:'none',color:'#ff66c4',side:'right'};
+    state.label={show:true,text:'',color:'#d1568c',size:36};
+    nameText.value=''; nameShow.checked=true; nameSize.value=36; document.getElementById('sizeOut').textContent='36 px';
+    refreshSelections(); draw();
+  };
+  document.getElementById('saveBtn').onclick = ()=>{
+    const link = document.createElement('a');
+    link.download = (state.label.text? `${state.label.text}-avatar.png` : 'hair-studio.png');
+    link.href = cv.toDataURL('image/png');
+    link.click();
+  };
+
+  // initial paint
+  refreshSelections();
+  draw();
+})();
+</script>
+</body>
+</html>
